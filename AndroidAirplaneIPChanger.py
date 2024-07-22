@@ -4,6 +4,12 @@ import subprocess
 from pathlib import Path
 from dataclasses import dataclass
 import time
+import json
+from typing import Union, Dict
+import os
+import pprint
+
+ADB_PATH = Path(next(x for x in os.environ['PATH'].split(';') if 'platform-tools' in x)).joinpath('adb.exe')
 
 class AndroidAirplaneIPChanger():
     @dataclass
@@ -118,19 +124,25 @@ class AndroidAirplaneIPChanger():
             return True
         return False
 
-    def get_current_ip(self):
+    def get_current_ip(self, location: bool=False) -> Union[str, Dict[str, any]]:
         """
         Gets the current IP address of the current device by HTTP request to ipify.
-
-        :return: The current IP address.
-        :rtype: str
+        
+        :param location: If True, returns the full IP location information as a dictionary.
+                         If False, returns just the IP address as a string.
+        :return: The current IP address as a string or IP location address as a dictionary in JSON format.
+        :rtype: Union[str, dict]
         :raises ValueError: If no current device is set.
         """
         if self.current_device is None:
             raise ValueError("Need init current device!")
-        
-        return subprocess.run([str(self.adb_path.absolute()), '-s', self.current_device.id,
-                        'shell', 'curl', '-s', 'api.ipify.org'], stdout=subprocess.PIPE, encoding='utf-8').stdout
+
+        ip_json = json.loads(subprocess.run([str(self.adb_path.absolute()), '-s', self.current_device.id,
+                                'shell', 'curl', '-s', 'ip-api.com/json/'], stdout=subprocess.PIPE, encoding='utf-8').stdout)
+        if location:
+            return ip_json
+
+        return ip_json['query']
     
     def set_default_device(self):
         """
@@ -165,3 +177,16 @@ class AndroidAirplaneIPChanger():
         if self.get_current_ip() == prev_ip:
             return False
         return True
+    
+if __name__ == '__main__':
+    changer = AndroidAirplaneIPChanger(ADB_PATH)
+    changer.set_default_device()
+    while True:
+        current_android_ip = changer.get_current_ip(location=True)
+        print(f"Current android IP:")
+        pprint.pprint(current_android_ip)
+        input(f"Do you want change your IP? (Press ENTER or exit from programm)")
+        if changer.change_ip():
+            print(f"\033[32mIP changed succesfull\033[0m")
+        else:
+            print(f"\033[31mIP didn't changed\033[0m")

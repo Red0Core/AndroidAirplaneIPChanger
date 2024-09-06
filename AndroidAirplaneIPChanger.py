@@ -1,5 +1,5 @@
 from collections.abc import MutableSequence
-from typing import Optional
+from typing import Any, Optional
 import subprocess
 from pathlib import Path
 from dataclasses import dataclass
@@ -56,6 +56,7 @@ class AndroidAirplaneIPChanger():
         :type device: Device
         """
         self.current_device = device
+        return self
 
     def get_device(self):
         """
@@ -124,7 +125,7 @@ class AndroidAirplaneIPChanger():
             return True
         return False
 
-    def get_current_ip(self, location: bool=False) -> Union[str, Dict[str, any]]:
+    def get_current_ip(self, location: bool=False) -> str | Dict[str, Any]:
         """
         Gets the current IP address of the current device by HTTP request to ipify.
         
@@ -154,6 +155,7 @@ class AndroidAirplaneIPChanger():
         if not devices:
             raise ValueError("Devices not connected!")
         self.current_device = devices[0]
+        return self
 
     def change_ip(self):
         """
@@ -169,6 +171,7 @@ class AndroidAirplaneIPChanger():
         prev_ip = self.get_current_ip()
 
         self.enable_airplane_mode()
+        time.sleep(5)
         self.disable_airplane_mode()
         time.sleep(10) #waiting for mobile get internet connection
 
@@ -177,8 +180,16 @@ class AndroidAirplaneIPChanger():
         if self.get_current_ip() == prev_ip:
             return False
         return True
+
+    def port_forward(self, port_from, port_to):
+        if self.current_device is None:
+            raise ValueError("Need init current device!")
+        
+        result = subprocess.run([str(self.adb_path.absolute()), '-s', self.current_device.id,
+                         'forward', f'tcp:{port_from}', f'tcp:{port_to}'])
     
 if __name__ == '__main__':
+    import datetime
     changer = AndroidAirplaneIPChanger(ADB_PATH)
     changer.set_default_device()
     while True:
@@ -187,6 +198,6 @@ if __name__ == '__main__':
         pprint.pprint(current_android_ip)
         input(f"Do you want change your IP? (Press ENTER or exit from programm)")
         if changer.change_ip():
-            print(f"\033[32mIP changed succesfull\033[0m")
+            print(f"\033[32mIP changed succesfull\033[0m {datetime.datetime.now().time()}")
         else:
-            print(f"\033[31mIP didn't changed\033[0m")
+            print(f"\033[31mIP didn't changed\033[0m {datetime.datetime.now().time()}")
